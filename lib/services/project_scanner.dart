@@ -1,12 +1,10 @@
 import 'dart:io';
-
-import 'package:code_graph/services/parsers/csharp_parser.dart';
-import 'package:code_graph/services/parsers/python_parser.dart';
-
 import '../models/class_node.dart';
 import '../models/class_relation.dart';
-import 'parsers/dart_parser.dart';
 import 'parsers/language_parser.dart';
+import 'parsers/dart_parser.dart';
+import 'parsers/python_parser.dart';
+import 'parsers/csharp_parser.dart';
 
 class ProjectScanner {
   final List<LanguageParser> _parsers = [
@@ -15,43 +13,44 @@ class ProjectScanner {
     CSharpParser(),
   ];
 
-  Future<(List<ClassNode>, List<ClassRelation>)> scanProject(
-    String rootPath,
-  ) async {
+  Future<(List<ClassNode>, List<ClassRelation>, int)> scanProject(String rootPath) async {
     final allNodes = <ClassNode>[];
     final allRelations = <ClassRelation>[];
-
-    // 1. Собираем все файлы, которые умеем парсить
+    int filesCount = 0; 
+    
     final dir = Directory(rootPath);
-    if (!await dir.exists()) return (allNodes, allRelations);
+    if (!await dir.exists()) return (allNodes, allRelations, filesCount);
 
     final filesToParse = <File>[];
     final parsersForFiles = <LanguageParser>[];
+    final ignoredFolders = ['.venv', 'venv', 'node_modules', '.git', 'build', '__pycache__'];
 
-    // Список папок, которые мы НЕ хотим сканировать (зависимости, кеш и т.д.)
-    final ignoredPaths = [
-      '/.venv/',
-      '/venv/',
-      '/node_modules/',
-      '/.git/',
-      '/build/',
-      '/__pycache__/',
-    ];
+    try {
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          // Проверяем, не лежит ли файл в мусорной папке
+          bool isIgnored = false;
+          for (final folder in ignoredFolders) {
+             if (entity.path.contains('/$folder/') || entity.path.contains('\\$folder\\')) {
+               isIgnored = true;
+               break;
+             }
+          }
+          if (isIgnored) continue;
 
-    await for (final entity in dir.list(recursive: true, followLinks: false)) {
-      if (entity is File) {
-        // Если путь к файлу содержит игнорируемую папку — пропускаем его
-        if (ignoredPaths.any((path) => entity.path.contains(path))) {
-          continue;
-        }
-        for (final parser in _parsers) {
-          if (parser.canParse(entity.path)) {
-            filesToParse.add(entity);
-            parsersForFiles.add(parser);
-            break;
+          // Ищем подходящий парсер
+          for (final parser in _parsers) {
+            if (parser.canParse(entity.path)) {
+              filesToParse.add(entity);
+              parsersForFiles.add(parser);
+              filesCount++;
+              break;
+            }
           }
         }
       }
+    } catch (e) {
+      print('Ошибка при чтении директории: $e');
     }
 
     // ПРОХОД 1: Находим все классы
@@ -60,8 +59,7 @@ class ProjectScanner {
       allNodes.addAll(nodes);
     }
 
-    // Создаем словарь: ИмяКласса -> Уникальный ID
-    // Это нужно, чтобы связать классы из разных файлов
+    // Создаем словарь для связывания классов из разных файлов
     final classIdMap = <String, String>{};
     final knownClassNames = <String>{};
     for (final node in allNodes) {
@@ -71,29 +69,28 @@ class ProjectScanner {
 
     // ПРОХОД 2: Ищем связи
     for (int i = 0; i < filesToParse.length; i++) {
-      final relations = await parsersForFiles[i].extractRelations(
-        filesToParse[i],
-        knownClassNames,
-      );
-
-      // Заменяем временные имена на реальные ID классов
+      final relations = await parsersForFiles[i].extractRelations(filesToParse[i], knownClassNames);
+      
       for (final rel in relations) {
-        final realToId = classIdMap[rel.toClassId]; // Ищем ID по имени
+        final realToId = classIdMap[rel.toClassId];
         if (realToId != null) {
-          allRelations.add(
-            ClassRelation(
-              fromClassId: rel.fromClassId,
-              toClassId: realToId,
-              type: rel.type,
-            ),
-          );
+          allRelations.add(ClassRelation(
+            fromClassId: rel.fromClassId,
+            toClassId: realToId,
+            type: rel.type,
+          ));
         }
       }
     }
 
-    print(
-      'Сканирование завершено. Классов: ${allNodes.length}, Связей: ${allRelations.length}',
-    );
-    return (allNodes, allRelations);
+    // УДАЛЯЕМ ДУБЛИКАТЫ: используем Map, где ключ — это ID класса
+    final uniqueNodesMap = <String, ClassNode>{};
+    for (final node in allNodes) {
+      uniqueNodesMap[node.id] = node;
+    }
+    final uniqueNodes = uniqueNodesMap.values.toList();
+
+    print('Сканирование завершено. Файлов: $filesCount, Классов: ${uniqueNodes.length}, Связей: ${allRelations.length}');
+    return (uniqueNodes, allRelations, filesCount); // Возвращаем очищенный список 
   }
 }

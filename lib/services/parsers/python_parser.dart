@@ -23,22 +23,28 @@ class PythonParser implements LanguageParser {
   @override
   Future<List<ClassNode>> extractClasses(File file) async {
     final nodes = <ClassNode>[];
-    final content = await file.readAsString();
 
-    // Ищем все совпадения во всем файле
-    final matches = _classRegex.allMatches(content);
+    try {
+      final content = await file.readAsString();
 
-    for (final match in matches) {
-      final className = match.group(1)!;
-      nodes.add(
-        ClassNode(
-          id: '${file.path}:$className',
-          name: className,
-          filePath: file.path,
-          language: languageName,
-        ),
-      );
+      // Ищем все совпадения во всем файле
+      final matches = _classRegex.allMatches(content);
+
+      for (final match in matches) {
+        final className = match.group(1)!;
+        nodes.add(
+          ClassNode(
+            id: '${file.path}:$className',
+            name: className,
+            filePath: file.path,
+            language: languageName,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Ошибка чтения файла ${file.path}: $e');
     }
+
     return nodes;
   }
 

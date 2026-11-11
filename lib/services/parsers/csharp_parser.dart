@@ -12,27 +12,37 @@ class CSharpParser implements LanguageParser {
   bool canParse(String filePath) => filePath.endsWith('.cs');
 
   // ^\s* — гарантирует, что мы ищем в начале строки
-  final _classRegex = RegExp(r'^\s*(?:public|private|protected|internal)?\s*(?:static|abstract|sealed|partial)?\s*class\s+([a-zA-Z_]\w*)(?:\s*:\s*([a-zA-Z_0-9,\s\.]+))?', multiLine: true);
-  
+  final _classRegex = RegExp(
+    r'^\s*(?:public|private|protected|internal)?\s*(?:static|abstract|sealed|partial)?\s*class\s+([a-zA-Z_]\w*)(?:\s*:\s*([a-zA-Z_0-9,\s\.]+))?',
+    multiLine: true,
+  );
+
   final _usageRegex = RegExp(r'\b([A-Z]\w*)\s+[a-zA-Z_]\w*\s*(?:;|\{)');
 
   @override
   Future<List<ClassNode>> extractClasses(File file) async {
     final nodes = <ClassNode>[];
-    final content = await file.readAsString();
-    final matches = _classRegex.allMatches(content);
 
-    for (final match in matches) {
-      final className = match.group(1)!;
-      nodes.add(
-        ClassNode(
-          id: '${file.path}:$className',
-          name: className,
-          filePath: file.path,
-          language: languageName,
-        ),
-      );
+    try {
+      final content = await file.readAsString();
+
+      final matches = _classRegex.allMatches(content);
+
+      for (final match in matches) {
+        final className = match.group(1)!;
+        nodes.add(
+          ClassNode(
+            id: '${file.path}:$className',
+            name: className,
+            filePath: file.path,
+            language: languageName,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Ошибка чтения файла ${file.path}: $e');
     }
+
     return nodes;
   }
 

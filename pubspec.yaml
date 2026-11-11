@@ -41,6 +41,7 @@ dependencies:
   path: ^1.9.1
   graphview: ^1.5.1
   analyzer: ^14.7.0
+  isolate: ^2.1.1
 
 dev_dependencies:
   flutter_test:
