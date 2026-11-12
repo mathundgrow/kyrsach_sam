@@ -11,13 +11,18 @@ class CSharpParser implements LanguageParser {
   @override
   bool canParse(String filePath) => filePath.endsWith('.cs');
 
-  // ^\s* — гарантирует, что мы ищем в начале строки
-  final _classRegex = RegExp(
-    r'^\s*(?:public|private|protected|internal)?\s*(?:static|abstract|sealed|partial)?\s*class\s+([a-zA-Z_]\w*)(?:\s*:\s*([a-zA-Z_0-9,\s\.]+))?',
+  // Ищем классы и интерфейсы. Интерфейс считаем абстрактным типом.
+  final _typeRegex = RegExp(
+    r'^\s*(?:public|private|protected|internal)?\s*(?:(?:static|abstract|sealed|partial)\s+)*(class|interface)\s+([a-zA-Z_]\w*)(?:\s*:\s*([a-zA-Z_0-9,\s\.<>]+))?',
     multiLine: true,
   );
 
   final _usageRegex = RegExp(r'\b([A-Z]\w*)\s+[a-zA-Z_]\w*\s*(?:;|\{)');
+
+  bool _isAbstractMatch(RegExpMatch match) {
+    return match.group(1) == 'interface' ||
+        RegExp(r'\babstract\b').hasMatch(match.group(0)!);
+  }
 
   @override
   Future<List<ClassNode>> extractClasses(File file) async {
@@ -26,16 +31,21 @@ class CSharpParser implements LanguageParser {
     try {
       final content = await file.readAsString();
 
-      final matches = _classRegex.allMatches(content);
+      final matches = _typeRegex.allMatches(content);
 
       for (final match in matches) {
-        final className = match.group(1)!;
+        final className = match.group(2)!;
+        final classIndex = match.start + match.group(0)!.indexOf(className);
+        final line =
+            '\n'.allMatches(content.substring(0, classIndex)).length + 1;
         nodes.add(
           ClassNode(
             id: '${file.path}:$className',
             name: className,
             filePath: file.path,
+            line: line,
             language: languageName,
+            isAbstract: _isAbstractMatch(match),
           ),
         );
       }
@@ -57,11 +67,11 @@ class CSharpParser implements LanguageParser {
     String? currentClassName;
 
     for (final line in lines) {
-      // 1. Ищем класс и наследование
-      final classMatch = _classRegex.firstMatch(line);
+      // 1. Ищем класс/интерфейс и наследование
+      final classMatch = _typeRegex.firstMatch(line);
       if (classMatch != null) {
-        currentClassName = classMatch.group(1)!;
-        final basesStr = classMatch.group(2);
+        currentClassName = classMatch.group(2)!;
+        final basesStr = classMatch.group(3);
 
         if (basesStr != null) {
           final bases = basesStr.split(',').map((e) => e.trim());

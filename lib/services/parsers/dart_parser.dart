@@ -31,7 +31,11 @@ class DartParser implements LanguageParser {
               id: '${file.path}:${declaration.namePart.typeName.lexeme}',
               name: declaration.namePart.typeName.lexeme,
               filePath: file.path,
+              line: parseResult.lineInfo
+                  .getLocation(declaration.offset)
+                  .lineNumber,
               language: languageName,
+              isAbstract: declaration.abstractKeyword != null,
             ),
           );
         }
@@ -91,7 +95,7 @@ class DartParser implements LanguageParser {
           }
 
           // 2. ИЩЕМ ИСПОЛЬЗОВАНИЕ (поля класса, например: MyOtherClass myVar;)
-          for (final member in declaration.body.members ?? <ClassMember>[]) {
+          for (final member in declaration.body.members) {
             if (member is FieldDeclaration) {
               final type = member.fields.type?.toSource();
               if (type != null && knownClassNames.contains(type)) {

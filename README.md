@@ -1,17 +1,44 @@
-# code_graph
+# Code Graph Analyzer
 
-A new Flutter project.
+Десктопное приложение на Flutter для статического анализа архитектуры проектов
+на **Dart**, **Python** и **C#**: строит интерактивный граф классов и зависимостей,
+находит архитектурные аномалии (God Object), считает оценку здоровья проекта,
+выдаёт локальные рекомендации и экспортирует отчёт в `.txt`.
 
-## Getting Started
+## Возможности
 
-This project is a starting point for a Flutter application.
+- Выбор папки проекта и история открытий (хранится только путь — проект
+  сканируется заново при каждом открытии).
+- Парсинг классов и связей (наследование и использование) для трёх языков.
+- Определение абстрактных классов и интерфейсов.
+- Структурированный граф: секции «Аномалии», «Исключённые аномалии»,
+  «Абстракции» и «Обычные классы»; обычные классы серые.
+- При выборе класса его входящие и исходящие связи окрашиваются в два
+  разных цвета, а выбранный класс выделяется жёлтой рамкой.
+- Вкладки «Структура», «Файлы», «Здоровье» и «Аномалии».
+- Поиск по имени файла на вкладке «Файлы».
+- Открытие класса из вкладки «Структура» прямо в VS Code (на нужной строке).
+- Фильтр изолированных классов без изменения цветов остальных узлов.
+- Большие проекты: граф показывает до 400 классов и сообщает, сколько скрыто.
+- Исключение аномалий («так и задумано») с сохранением решения для каждого проекта.
+- Локальный ИИ-помощник с архитектурными советами.
+- Экспорт отчёта о состоянии проекта.
 
-A few resources to get you started if this is your first Flutter project:
+## Запуск
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run -d macos
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Документация
+
+Полное описание архитектуры, всех функций и пути данных:
+[PROJECT_GUIDE.md](PROJECT_GUIDE.md).
+
+## Проверка
+
+```bash
+flutter analyze
+flutter test
+```

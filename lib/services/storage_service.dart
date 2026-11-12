@@ -6,6 +6,7 @@ import '../models/recent_project.dart';
 
 class StorageService {
   static const _key = 'recent_projects';
+  static const _ignoredPrefix = 'ignored_anomalies:';
 
   // Получить список ранее открытых
   Future<List<RecentProject>> getRecentProjects() async {
@@ -48,5 +49,28 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = jsonEncode(projects.map((e) => e.toJson()).toList());
     await prefs.setString(_key, jsonString);
+  }
+
+  // ==================== ИСКЛЮЧЁННЫЕ АНОМАЛИИ ====================
+  // Для каждого проекта храним свой набор ID классов, которые
+  // пользователь признал допустимыми ("это не аномалия").
+
+  Future<Set<String>> getIgnoredAnomalies(String projectPath) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('$_ignoredPrefix$projectPath');
+    if (jsonString == null) return <String>{};
+
+    try {
+      final List<dynamic> ids = jsonDecode(jsonString);
+      return ids.map((e) => e.toString()).toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> saveIgnoredAnomalies(String projectPath, Set<String> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = jsonEncode(ids.toList());
+    await prefs.setString('$_ignoredPrefix$projectPath', jsonString);
   }
 }

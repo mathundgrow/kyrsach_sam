@@ -1,32 +1,23 @@
 import 'package:equatable/equatable.dart';
+import 'package:path/path.dart' as p;
 
+// В истории храним ТОЛЬКО путь к проекту.
+// Никакие классы, связи и графы не сохраняются: при открытии всё
+// сканируется заново.
 class RecentProject extends Equatable {
-  final String name;
   final String path;
-  final DateTime lastOpened;
 
-  const RecentProject({
-    required this.name,
-    required this.path,
-    required this.lastOpened,
-  });
+  const RecentProject({required this.path});
 
-  // Превращаем в JSON для сохранения
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'path': path,
-    'lastOpened': lastOpened.toIso8601String(),
-  };
+  // Имя папки всегда можно получить из пути
+  String get name => p.basename(path);
 
-  // Достаем из JSON при загрузке
+  Map<String, dynamic> toJson() => {'path': path};
+
   factory RecentProject.fromJson(Map<String, dynamic> json) {
-    return RecentProject(
-      name: json['name'],
-      path: json['path'],
-      lastOpened: DateTime.parse(json['lastOpened']),
-    );
+    return RecentProject(path: json['path'] as String);
   }
 
   @override
-  List<Object?> get props => [name, path, lastOpened];
+  List<Object?> get props => [path];
 }

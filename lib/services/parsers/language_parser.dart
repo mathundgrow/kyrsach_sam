@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import '../../models/class_node.dart';
 import '../../models/class_relation.dart';
 
@@ -10,5 +11,8 @@ abstract class LanguageParser {
   Future<List<ClassNode>> extractClasses(File file);
 
   // Второй проход: найти связи. Передаем имена всех известных классов.
-  Future<List<ClassRelation>> extractRelations(File file, Set<String> knownClassNames);
+  Future<List<ClassRelation>> extractRelations(
+    File file,
+    Set<String> knownClassNames,
+  );
 }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -33,21 +35,37 @@ class _WelcomePageState extends State<WelcomePage> {
     });
   }
 
-  // Переход к анализу проекта
+  // Переход к анализу проекта.
+  // В истории храним только путь: здесь проект каждый раз сканируется заново.
   Future<void> _openProject(String path) async {
-    final projectName = p.basename(path); // Берем имя папки как название проекта
-    final newProject = RecentProject(
-      name: projectName,
-      path: path,
-      lastOpened: DateTime.now(),
-    );
+    final directory = Directory(path);
 
-    // Сохраняем в историю
+    bool exists = false;
+    try {
+      exists = await directory.exists();
+    } catch (_) {
+      exists = false;
+    }
+
+    if (!exists) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Папка недоступна. Выберите проект заново:\n$path'),
+        ),
+      );
+      return;
+    }
+
+    final projectName = p.basename(path);
+    final newProject = RecentProject(path: path);
+
+    // Сохраняем в историю только путь
     await _storage.addRecentProject(newProject);
 
     if (!mounted) return;
 
-    // Переходим на экран анализа
+    // Переходим на экран анализа — там запустится новое сканирование
     Navigator.of(context)
         .push(
           MaterialPageRoute(
@@ -89,66 +107,81 @@ class _WelcomePageState extends State<WelcomePage> {
               children: [
                 const Padding(
                   padding: EdgeInsets.all(20.0),
-                  child: Text(
-                    'Ранее открытые',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ранее открытые',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Хранится только путь к папке.\n'
+                        'Анализ выполняется заново при каждом открытии.',
+                        style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : _recentProjects.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'История пуста',
-                                style: TextStyle(color: Colors.white54),
+                      ? const Center(
+                          child: Text(
+                            'История пуста',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _recentProjects.length,
+                          itemBuilder: (context, index) {
+                            final project = _recentProjects[index];
+                            return ListTile(
+                              leading: const Icon(
+                                Icons.folder,
+                                color: Colors.purpleAccent,
                               ),
-                            )
-                          : ListView.builder(
-                              itemCount: _recentProjects.length,
-                              itemBuilder: (context, index) {
-                                final project = _recentProjects[index];
-                                return ListTile(
-                                  leading: const Icon(
-                                    Icons.folder,
-                                    color: Colors.purpleAccent,
-                                  ),
-                                  title: Text(
-                                    project.name,
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    project.path,
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 12,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  onTap: () => _openProject(project.path),
-                                  // Кнопка удаления
-                                  trailing: IconButton(
-                                    icon: const Icon(
-                                      Icons.close,
-                                      color: Colors.white54,
-                                      size: 18,
-                                    ),
-                                    tooltip: 'Удалить из истории',
-                                    onPressed: () => _removeProject(project.path),
-                                    hoverColor: Colors.red.withValues(alpha: 0.2),
-                                  ),
-                                );
-                              },
-                            ),
+                              title: Text(
+                                project.name,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              subtitle: Text(
+                                project.path,
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              onTap: () => _openProject(project.path),
+                              // Кнопка удаления
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.white54,
+                                  size: 18,
+                                ),
+                                tooltip: 'Удалить из истории',
+                                onPressed: () => _removeProject(project.path),
+                                hoverColor: Colors.red.withValues(alpha: 0.2),
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
           ),
-          
+
           // ПРАВАЯ ЧАСТЬ: Приветствие
           Expanded(
             child: Center(

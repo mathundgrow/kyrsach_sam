@@ -32,12 +32,24 @@ class PythonParser implements LanguageParser {
 
       for (final match in matches) {
         final className = match.group(1)!;
+        final classIndex = match.start + match.group(0)!.indexOf(className);
+        final line =
+            '\n'.allMatches(content.substring(0, classIndex)).length + 1;
+        final parents = (match.group(2) ?? '')
+            .split(',')
+            .map((e) => e.trim().split('.').last)
+            .toList();
+        final isAbstract =
+            parents.contains('ABC') || parents.contains('ABCMeta');
+
         nodes.add(
           ClassNode(
             id: '${file.path}:$className',
             name: className,
             filePath: file.path,
+            line: line,
             language: languageName,
+            isAbstract: isAbstract,
           ),
         );
       }
